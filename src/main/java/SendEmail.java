@@ -1,9 +1,11 @@
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Session;
-import javax.mail.Transport;
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.activation.FileDataSource;
+import javax.mail.*;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import java.util.Properties;
 
 public class SendEmail
@@ -11,8 +13,8 @@ public class SendEmail
 	public static void main(String [] args){
 		String to = "sonoojaiswal1988@gmail.com";//change accordingly
 		String from = "sonoojaiswal1987@gmail.com";//change accordingly
-		String host = "127.0.0.1";//or IP address
-		String port = "8123";
+		String host = "localhost";//or IP address
+		String port = "25";
 
 		//Get the session object
 		Properties properties = System.getProperties();
@@ -20,14 +22,28 @@ public class SendEmail
 		properties.setProperty("mail.smtp.port", port);
 		Session session = Session.getDefaultInstance(properties);
 
-		for (int i=0; i<5; i++) {
+		for (int i=0; i<1; i++) {
 			//compose the message
 			try {
 				MimeMessage message = new MimeMessage(session);
 				message.setFrom(new InternetAddress(from));
 				message.addRecipient(Message.RecipientType.TO, new InternetAddress(to));
 				message.setSubject("Ping " + i);
-				message.setText("Hello, this is example of sending email  ");
+
+				BodyPart messageBodyPart = new MimeBodyPart();
+				messageBodyPart.setText("Hello, this is example of sending email  ");
+
+				MimeMultipart multipart = new MimeMultipart();
+				multipart.addBodyPart(messageBodyPart);
+
+				messageBodyPart = new MimeBodyPart();
+				String filename = "/Users/willem/Desktop/image.png";
+				DataSource source = new FileDataSource(filename);
+				messageBodyPart.setDataHandler(new DataHandler(source));
+				messageBodyPart.setFileName(filename);
+				multipart.addBodyPart(messageBodyPart);
+
+				message.setContent(multipart);
 
 				// Send message
 				System.out.println("About to send message " + i);

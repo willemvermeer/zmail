@@ -2,8 +2,8 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.util.Properties
 
-import javax.mail.Session
 import javax.mail.internet.MimeMessage
+import javax.mail.{ Address, Session }
 import zio._
 import zio.blocking.Blocking
 import zio.clock._
@@ -16,20 +16,25 @@ object MailServer extends App {
 
   val server = AsynchronousServerSocketChannel().mapM { socket =>
     for {
-      _ <- SocketAddress.inetSocketAddress("127.0.0.1", 8123) >>= socket.bind
+      _ <- SocketAddress.inetSocketAddress("0.0.0.0", 25) >>= socket.bind
       _ <- socket.accept.preallocate
-            .flatMap(_.use(channel => doWork(channel).catchAll(ex => putStrLn(ex.getMessage + ex.toString))).fork)
+            .flatMap(
+              _.ensuring(putStrLn("Connection closed"))
+                .use(channel => doWork(channel).catchAll(ex => putStrLn(ex.getMessage + ex.toString)))
+                .fork
+            )
             .forever
             .fork
       _ <- putStrLn("Mail Server has started")
     } yield ()
   }.useForever
 
-  val greeting    = "220 smtp.voorbeeld.nl Example SMTP Service\n"
-  val hello       = "250 Hello\n"
-  val pleaseStart = "354 Please start mail input, and finish with a new line and a '.' followed by a newline.\n"
-  val queued      = "250 Mail queued for delivery.\n"
-  val goodbye     = "221 Goodbye.\n"
+  val greeting        = "220 fizzle.email Fizzle SMTP Service\r\n"
+  val hello           = "250 Hello\r\n"
+  val pleaseStart     = "354 Please start mail input, and finish with a new line and a '.' followed by a newline.\r\n"
+  val queued          = "250 Mail queued for delivery.\r\n"
+  val goodbye         = "221 Goodbye.\r\n"
+  val failUnknownHost = "555  MAIL FROM/RCPT TO parameters not recognized or not implemented\r\n"
 
   def writeToChannel(txt: String, channel: AsynchronousSocketChannel) =
     ZStream.fromInputStream(new ByteArrayInputStream(txt.getBytes)).foreach { b =>
@@ -49,6 +54,7 @@ object MailServer extends App {
       .run(Sink.foldLeft("")(_ + (_: String)))
 
   case class EndOfStreamException(message: String) extends Exception(message: String)
+  case class IllegalFromException(message: String) extends Exception(message: String)
 
   def readAllFromChannel(channel: AsynchronousSocketChannel): ZIO[Console, Nothing, String] = {
     def recurse(channel: AsynchronousSocketChannel, result: Seq[String]): ZIO[Console, Nothing, Seq[String]] =
@@ -62,26 +68,37 @@ object MailServer extends App {
     recurse(channel, Seq()).map(_.mkString)
   }
 
+  private def printRecipients(recps: Array[Address]) =
+    recps.toList.map(address => s"${address.getType} $address").mkString("\n")
+
   def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] = {
     val process =
       for {
+        remoteAddress <- channel.remoteAddress.orElseSucceed(None)
+        _ <- putStrLn(s"Begin handling connection from $remoteAddress")
+
         _ <- writeToChannel(greeting, channel)
         _ <- putStrLn(s"Wrote greeting to socket")
 
-        data <- readFromChannel(channel)
-        _    <- putStrLn(s"Result 1: $data")
+        clientHost <- readFromChannel(channel)
+        _          <- putStrLn(s"Result 1: $clientHost")
 
         _ <- writeToChannel(hello, channel)
         _ <- putStrLn(s"Wrote hello to socket")
 
-        data <- readFromChannel(channel)
-        _    <- putStrLn(s"Result 2: $data")
+        mailFrom <- readFromChannel(channel)
+        _        <- putStrLn(s"Result 2: $mailFrom")
 
         _ <- writeToChannel(hello, channel)
         _ <- putStrLn(s"Wrote hello to socket")
 
-        data <- readFromChannel(channel)
-        _    <- putStrLn(s"Result 3: $data")
+        rcptTo <- readFromChannel(channel)
+        _    <- putStrLn(s"Result 3: $rcptTo")
+        _ <- if (rcptTo.contains("@gmail.com")) {
+          writeToChannel(failUnknownHost, channel) *>
+            channel.shutdownOutput *>
+            ZIO.fail(IllegalFromException(rcptTo))
+        } else ZIO.succeed(mailFrom)
 
         _ <- writeToChannel(hello, channel)
         _ <- putStrLn(s"Wrote hello to socket")
@@ -100,6 +117,7 @@ object MailServer extends App {
                 new MimeMessage(session, new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
               }
         _ <- putStrLn(s"Da MimeMessage: ${msg.getSender}")
+        _ <- putStrLn(s"Da MimeMessage: ${printRecipients(msg.getAllRecipients)}")
         _ <- putStrLn(s"Da MimeMessage: ${msg.getMessageID}")
         _ <- putStrLn(s"Da MimeMessage: ${msg.getContentType}")
 
