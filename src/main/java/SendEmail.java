@@ -14,7 +14,7 @@ public class SendEmail
 		String to = "sonoojaiswal1988@gmail.com";//change accordingly
 		String from = "sonoojaiswal1987@gmail.com";//change accordingly
 		String host = "localhost";//or IP address
-		String port = "25";
+		String port = "8125";
 
 		//Get the session object
 		Properties properties = System.getProperties();
