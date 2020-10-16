@@ -1,6 +1,6 @@
 package email.fizzle.zmail
 
-import email.fizzle.zmail.Smtp.{ Domain, Ehlo, Helo }
+import email.fizzle.zmail.Smtp.{ Domain, Ehlo, Helo, MailFrom, ReversePath }
 import fastparse.Parsed
 import org.scalatest._
 import flatspec._
@@ -28,7 +28,12 @@ class SmtpParserSpec extends AnyFlatSpec with should.Matchers {
     fastparse.parse("EHLO willems-mbp-2.fritz.box", SmtpParser.ehlo(_)) shouldBe Parsed.Success(Ehlo(Domain("willems-mbp-2.fritz.box")), 28)
   }
   "The SmtpParser" should "parse MAIL FROM:<sonoojaiswal1987@gmail.com>" in {
-    fastparse.parse("MAIL FROM:<sonoojaiswal1987@gmail.com>", SmtpParser.mailfrom(_)) shouldBe Parsed.Success(Helo(Domain("willems-mbp-2.fritz.box")), 28)
+    println(fastparse.parse("a@b.c", SmtpParser.mailbox(_)))
+    println(fastparse.parse("aa@bb.com", SmtpParser.mailbox(_)))
+    println(fastparse.parse("aa.ee@bb.com", SmtpParser.mailbox(_)))
+    println(fastparse.parse("<aa.ee@bb.com>", SmtpParser.reversepath(_)))
+    println(fastparse.parse("<sonoojaiswal1987@gmail.com>", SmtpParser.reversepath(_)))
+    fastparse.parse("MAIL FROM:<sonoojaiswal1987@gmail.com>", SmtpParser.mailfrom(_)) shouldBe Parsed.Success(MailFrom(ReversePath("sonoojaisswal1987@gmail.com")), 28)
   }
   "The SmtpParser" should "not parse vermeer" in {
     fastparse.parse("vermeer", SmtpParser.willem(_)) shouldBe a[Parsed.Failure]

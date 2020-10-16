@@ -56,7 +56,7 @@ object SmtpParser {
   def esmtpkeyword[_: P]: P[Unit] = P( letdig ~ ( letdig | "-" ).rep(0) )
   def esmtpparam[_: P]: P[Unit] = P( esmtpkeyword ~ ( "=" ~ esmtpvalue ).? )
   def mailparameters[_: P]: P[Unit] = P( esmtpparam ~ ( " " ~ esmtpparam ).rep(0) )
-  def mailfrom[_: P]: P[MailFrom] = P( "MAIL FROM:" ~ " " ~ reversepath ~ (" " ~ mailparameters ).? ).map(p => MailFrom(ReversePath(p)))
+  def mailfrom[_: P]: P[MailFrom] = P( "MAIL FROM:" ~ reversepath ~ (" " ~ mailparameters ).? ).map(p => MailFrom(ReversePath(p)))
 
   def command[_: P]: P[Command] = P( (helo | ehlo | mailfrom) ~ EOL )
 
