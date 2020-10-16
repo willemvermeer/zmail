@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream
 
 import email.fizzle.zmail.MailServer.ReplyCode
 import email.fizzle.zmail.MailServer.ReplyCode.READY
-import email.fizzle.zmail.Smtp.{ Command, Domain, Ehlo, Helo, MailFrom, Quit }
+import email.fizzle.zmail.Smtp.{ Command, Domain, Ehlo, Helo, MailFrom, Quit, RcptTo }
 import zio.blocking.Blocking
 import zio.console.putStrLn
 import zio.nio.channels.AsynchronousSocketChannel
@@ -36,6 +36,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     def nextCommand =
       for {
         line <- readLineFromChannel
+
         _ <- logInbound(line)
         command <- SmtpParser.parse(line)
       } yield command
@@ -61,6 +62,12 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
               cmd <- nextCommand
               msg <- recurse(cmd, msg)
             } yield msg
+          case mf @ RcptTo(path) =>
+            for {
+              msg <- rcptTo(mf, msg)
+              cmd <- nextCommand
+              msg <- recurse(cmd, msg)
+            } yield msg
         }
     }
 
@@ -71,12 +78,11 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
   }
 
-  val greeting        = "220 \r\n"
-  val hello           = "Hello\r\n"
-  val pleaseStart     = "354 Please start mail input, and finish with a new line and a '.' followed by a newline.\r\n"
-  val queued          = "250 Mail queued for delivery.\r\n"
-  val goodbye         = "221 Goodbye.\r\n"
-  val failUnknownHost = "555  MAIL FROM/RCPT TO parameters not recognized or not implemented\r\n"
+  val hello           = "Hello"
+  val pleaseStart     = "354 Please start mail input, and finish with a new line and a '.' followed by a newline."
+  val queued          = "250 Mail queued for delivery."
+  val goodbye         = "221 Goodbye."
+  val failUnknownHost = "555  MAIL FROM/RCPT TO parameters not recognized or not implemented"
 
   private def helo(domain: Domain, msg: RawMessage) =
     for {
@@ -91,8 +97,13 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
   private def mailFrom(mailFrom: MailFrom, msg: RawMessage) =
     for {
-      _ <- respond(ReplyCode.OK, s"${mailFrom.path.path}... Sender OK")
+      _ <- respond(ReplyCode.OK, s"OK")
     } yield msg.addMailFrom(mailFrom)
+
+  private def rcptTo(rcptTo: RcptTo, msg: RawMessage) =
+    for {
+      _ <- respond(ReplyCode.OK, s"OK")
+    } yield msg.addRecipient(Recipient(rcptTo.path.path))
 
   private def respond(code: ReplyCode, txt: String) = {
     val totalMsg = s"${code.code} $txt\r\n"
@@ -107,7 +118,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     }
 
   private def logOutbound(txt: String) = ZIO.succeed(log.append(s"<<<$txt"))
-  private def logInbound(txt: String)  = ZIO.succeed(log.append(s">>>$txt"))
+  private def logInbound(txt: String)  = ZIO.succeed(log.append(s">>>$txt###"))
 
   private def readLineFromChannel =
     ZStream

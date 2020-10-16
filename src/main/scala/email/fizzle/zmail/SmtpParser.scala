@@ -47,18 +47,18 @@ object SmtpParser {
   def forwardpath[_: P]: P[String] = P( path )
   def reversepath[_: P]: P[String] = P( path | "<>" ).map(_.toString)
 
-//  def addressLiteral[_: P] =
-  def helo[_: P]: P[Helo] = P( "HELO" ~ " " ~ domainC ).map(Helo)
-//  def ehlo[_: P]: P[Ehlo] = P( "EHLO" ~ " " ~ (domainC | addressLiteral ).map(Ehlo)
-  def ehlo[_: P]: P[Ehlo] = P( "EHLO" ~ " " ~ domainC ).map(Ehlo)
-
   def esmtpvalue[_: P]: P[Unit] = P( (CharIn("!-<") | CharIn(">-~")).rep(1) ) // bnf 1*(%d33-60 / %d62-126)
   def esmtpkeyword[_: P]: P[Unit] = P( letdig ~ ( letdig | "-" ).rep(0) )
   def esmtpparam[_: P]: P[Unit] = P( esmtpkeyword ~ ( "=" ~ esmtpvalue ).? )
   def mailparameters[_: P]: P[Unit] = P( esmtpparam ~ ( " " ~ esmtpparam ).rep(0) )
-  def mailfrom[_: P]: P[MailFrom] = P( "MAIL FROM:" ~ reversepath ~ (" " ~ mailparameters ).? ).map(p => MailFrom(ReversePath(p)))
 
-  def command[_: P]: P[Command] = P( (helo | ehlo | mailfrom) ~ EOL )
+  def helo[_: P]: P[Helo] = P( "HELO" ~ " " ~ domainC ).map(Helo)
+  def ehlo[_: P]: P[Ehlo] = P( "EHLO" ~ " " ~ domainC ).map(Ehlo)
+  def mailfrom[_: P]: P[MailFrom] = P( "MAIL FROM:" ~ reversepath ~ (" " ~ mailparameters ).? ).map(p => MailFrom(ReversePath(p)))
+  def rcptto[_: P]: P[RcptTo] = P( "RCPT TO:" ~ forwardpath ~ (" " ~ mailparameters ).? ).map(p => RcptTo(ReversePath(p)))
+  def quit[_: P]: P[Quit.type] = P( "QUIT" ).map(_ => Quit)
+
+  def command[_: P]: P[Command] = P( ( helo | ehlo | mailfrom | rcptto | quit) ~ EOL )
 
   def parse(line: String): IO[ParseError, Command] = fastparse.parse(line, SmtpParser.command(_)) match {
     case Parsed.Success(cmd, _) => ZIO.succeed(cmd)
@@ -77,7 +77,7 @@ object Smtp {
   case class Helo(domain: Domain) extends Command
   case class Ehlo(domain: Domain) extends Command
   case class MailFrom(path: ReversePath) extends Command
-  case class RcptFrom(path: ReversePath) extends Command
+  case class RcptTo(path: ReversePath) extends Command
   case object Data extends Command
   case object Quit extends Command
 }
