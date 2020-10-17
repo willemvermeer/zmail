@@ -35,39 +35,37 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
         command <- SmtpParser.parse(line)
       } yield command
 
+    def handle(cmd: Command, msg: RawMessage) = cmd match {
+      case Helo(domain)        =>
+        for {
+          msg <- helo(domain, msg)
+        } yield msg
+      case Ehlo(domain)        =>
+        for {
+          msg <- ehlo(domain, msg)
+        } yield msg
+      case mf @ MailFrom(path) =>
+        for {
+          msg <- mailFrom(mf, msg)
+        } yield msg
+      case mf @ RcptTo(path)   =>
+        for {
+          msg <- rcptTo(mf, msg)
+        } yield msg
+      case Data                =>
+        for {
+          msg <- data(msg)
+        } yield msg
+    }
     def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
       cmd match {
         case Quit                =>
           for {
             msg <- quit(msg)
           } yield msg
-        case Helo(domain)        =>
+        case _ =>
           for {
-            msg <- helo(domain, msg)
-            cmd <- nextCommand
-            msg <- recurse(cmd, msg)
-          } yield msg
-        case Ehlo(domain)        =>
-          for {
-            msg <- ehlo(domain, msg)
-            cmd <- nextCommand
-            msg <- recurse(cmd, msg)
-          } yield msg
-        case mf @ MailFrom(path) =>
-          for {
-            msg <- mailFrom(mf, msg)
-            cmd <- nextCommand
-            msg <- recurse(cmd, msg)
-          } yield msg
-        case mf @ RcptTo(path)   =>
-          for {
-            msg <- rcptTo(mf, msg)
-            cmd <- nextCommand
-            msg <- recurse(cmd, msg)
-          } yield msg
-        case Data                =>
-          for {
-            msg <- data(msg)
+            msg <- handle(cmd, msg)
             cmd <- nextCommand
             msg <- recurse(cmd, msg)
           } yield msg
