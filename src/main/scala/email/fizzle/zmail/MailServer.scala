@@ -1,10 +1,15 @@
 package email.fizzle.zmail
 
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
+
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.console.{ Console, putStrLn }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 import zio.nio.core.SocketAddress
+import zio.stream.{ ZSink, ZStream }
 import zio.{ App, ZIO }
 
 object MailServer extends App {
@@ -25,12 +30,20 @@ object MailServer extends App {
   }.useForever
 
   def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] = {
+    val dest    = "/tmp/willem"
     val process =
       for {
         rawMessage <- SmtpSession(channel).run
         _          <- putStrLn(s"Finished with a message from ${rawMessage.mailFrom} for ${rawMessage.recipients}.")
-//        _ <- channel.shutdownInput
-//        _ <- channel.shutdownOutput
+        bWritten   <- rawMessage.data match {
+                        case Some(data) =>
+                          val from =
+                            ZStream.fromInputStream(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
+                          val to   = ZSink.fromFile(Paths.get(dest))
+                          from.run(to)
+                        case None       => ZIO.fail(new Exception("No data"))
+                      }
+        _          <- putStrLn(s"Wrote $bWritten bytes to $dest")
       } yield ()
 
     // read the entire message, which might fail because of wrong recipients or other problems

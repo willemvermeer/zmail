@@ -24,6 +24,7 @@ public class SendEmail
 		properties.setProperty("mail.smtp.port", port);
 		Session session = Session.getDefaultInstance(properties);
 
+		int success = 0;
 		for (int i=0; i<1; i++) {
 			//compose the message
 			try {
@@ -51,12 +52,14 @@ public class SendEmail
 				System.out.println("About to send message " + i);
 				Transport.send(message);
 				System.out.println("message sent successfully....");
-
+				success++;
 			} catch (MessagingException mex) {
 				mex.printStackTrace();
 				System.out.println(((SMTPSendFailedException)mex).getCommand());
 				System.out.println(((SMTPSendFailedException)mex).getReturnCode());
 			}
+
+			System.out.println("Successes: " + success);
 		}
 	}
 }

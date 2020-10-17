@@ -30,42 +30,46 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
     def nextCommand =
       for {
-        line <- readLineFromChannel
+        line    <- readLineFromChannel
         _       <- logInbound(line)
         command <- SmtpParser.parse(line)
       } yield command
 
-    def handle(cmd: Command, msg: RawMessage) = cmd match {
-      case Helo(domain)        =>
+    def handleCommand(cmd: Command, msg: RawMessage) = cmd match {
+      case Helo(domain)           =>
         for {
-          msg <- helo(domain, msg)
-        } yield msg
-      case Ehlo(domain)        =>
+          _ <- respond(ReplyCode.OK, hello)
+        } yield msg.addDomain(domain)
+      case Ehlo(domain)           =>
         for {
-          msg <- ehlo(domain, msg)
-        } yield msg
-      case mf @ MailFrom(path) =>
+          // TODO: tell client what msgs we support
+          _ <- respond(ReplyCode.OK, hello)
+        } yield msg.addDomain(domain)
+      case mailFrom @ MailFrom(_) =>
         for {
-          msg <- mailFrom(mf, msg)
-        } yield msg
-      case mf @ RcptTo(path)   =>
+          _ <- respond(ReplyCode.OK, s"OK")
+        } yield msg.addMailFrom(mailFrom)
+      case rcptTo @ RcptTo(_)     =>
         for {
-          msg <- rcptTo(mf, msg)
-        } yield msg
-      case Data                =>
+          _ <- respond(ReplyCode.OK, s"OK")
+        } yield msg.addRecipient(Recipient(rcptTo.path.path))
+      case Data                   =>
         for {
-          msg <- data(msg)
-        } yield msg
+          _    <- respond(ReplyCode.START, s"Ready to receive data")
+          data <- readAllFromChannel(channel)
+          _    <- respond(ReplyCode.OK, s"Mail queued.")
+        } yield msg.setData(data)
     }
+
     def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
       cmd match {
-        case Quit                =>
+        case Quit =>
           for {
-            msg <- quit(msg)
+            _ <- respond(ReplyCode.CLOSING, "OK")
           } yield msg
-        case _ =>
+        case _    =>
           for {
-            msg <- handle(cmd, msg)
+            msg <- handleCommand(cmd, msg)
             cmd <- nextCommand
             msg <- recurse(cmd, msg)
           } yield msg
@@ -79,39 +83,6 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
   }
 
   val hello = "Hello"
-
-  private def helo(domain: Domain, msg: RawMessage) =
-    for {
-      _ <- respond(ReplyCode.OK, hello)
-    } yield msg.addDomain(domain)
-
-  private def ehlo(domain: Domain, msg: RawMessage) =
-    for {
-      // TODO: tell client what msgs we support
-      _ <- respond(ReplyCode.OK, hello)
-    } yield msg.addDomain(domain)
-
-  private def mailFrom(mailFrom: MailFrom, msg: RawMessage) =
-    for {
-      _ <- respond(ReplyCode.OK, s"OK")
-    } yield msg.addMailFrom(mailFrom)
-
-  private def rcptTo(rcptTo: RcptTo, msg: RawMessage) =
-    for {
-      _ <- respond(ReplyCode.OK, s"OK")
-    } yield msg.addRecipient(Recipient(rcptTo.path.path))
-
-  private def data(msg: RawMessage) =
-    for {
-      _    <- respond(ReplyCode.START, s"Ready to receive data")
-      data <- readAllFromChannel(channel)
-      _    <- respond(ReplyCode.OK, s"Mail queued.")
-    } yield msg.setData(data)
-
-  private def quit(msg: RawMessage) =
-    for {
-      _ <- respond(ReplyCode.CLOSING, "OK")
-    } yield msg
 
   private def respond(code: ReplyCode, txt: String) = {
     val totalMsg = s"${code.code} $txt\r\n"
