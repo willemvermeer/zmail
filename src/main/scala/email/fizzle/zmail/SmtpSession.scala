@@ -2,8 +2,7 @@ package email.fizzle.zmail
 
 import java.io.ByteArrayInputStream
 
-import email.fizzle.zmail.MailServer.ReplyCode.READY
-import email.fizzle.zmail.MailServer.{ ReplyCode, readFromChannel }
+import email.fizzle.zmail.ReplyCode._
 import email.fizzle.zmail.Smtp._
 import zio.blocking.Blocking
 import zio.console.putStrLn
@@ -18,7 +17,6 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
   def run = (for {
     msg <- handshake
     msg <- main(msg)
-    _ <- putStrLn(log.logs.mkString("\n"))
   } yield msg).tapError(x => putStrLn(s"\n###############ERROR $x\n${log.logs.mkString("\n")}"))
 
   def handshake =
@@ -33,7 +31,6 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     def nextCommand =
       for {
         line <- readLineFromChannel
-
         _       <- logInbound(line)
         command <- SmtpParser.parse(line)
       } yield command
@@ -42,7 +39,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
       cmd match {
         case Quit                =>
           for {
-            _ <- respond(ReplyCode.CLOSING, "Goodbye")
+            msg <- quit(msg)
           } yield msg
         case Helo(domain)        =>
           for {
@@ -113,6 +110,11 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
       _    <- respond(ReplyCode.OK, s"Mail queued.")
     } yield msg.setData(data)
 
+  private def quit(msg: RawMessage) =
+    for {
+      _ <- respond(ReplyCode.CLOSING, "OK")
+    } yield msg
+
   private def respond(code: ReplyCode, txt: String) = {
     val totalMsg = s"${code.code} $txt\r\n"
     logOutbound(totalMsg) *> writeToChannel(totalMsg, channel)
@@ -126,7 +128,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     }
 
   private def logOutbound(txt: String) = ZIO.succeed(log.append(s"<<<$txt"))
-  private def logInbound(txt: String)  = ZIO.succeed(log.append(s">>>$txt###"))
+  private def logInbound(txt: String)  = ZIO.succeed(log.append(s">>>$txt"))
 
   private def readLineFromChannel =
     ZStream
@@ -141,7 +143,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
   private def readAllFromChannel(channel: AsynchronousSocketChannel) = {
     def recurse(channel: AsynchronousSocketChannel, result: Seq[String]): IO[Nothing, Seq[String]] =
       for {
-        chunk   <- readFromChannel(channel)
+        chunk   <- readLineFromChannel
         proceed <- ZIO.succeed(chunk.length == 256)
         all     <- if (proceed) recurse(channel, result :+ chunk)
                    else ZIO.succeed(result :+ chunk)
@@ -161,64 +163,9 @@ class Log {
   }
 }
 /*
-remoteAddress <- channel.remoteAddress.orElseSucceed(None)
-_             <- putStrLn(s"Begin interaction with $remoteAddress")
-
-_ <- respond(READY, "fizzle.email Fizzle SMTP Service", channel)
-
-clientHost <- readFromChannel(channel)
-_          <- logInbound(clientHost)
-_          <- respond(OK, "Hello", channel)
-
-mailFrom <- readFromChannel(channel)
-_        <- logInbound(mailFrom)
-_        <- respond(OK, s"${
-
-import zio.blocking.Blocking
-
-stripBrackets(mailFrom)}", channel)
-
-rcptTo <- readFromChannel(channel)
-_      <- logInbound(rcptTo)
-_ <- if (!rcptTo.contains("@fizzle.email")) {
-respond(REJECTED, "No such user here", channel) *>
-channel.shutdownOutput *>
-ZIO.fail(IllegalFromException(rcptTo))
-} else ZIO.succeed(mailFrom)
-_ <- respond(OK, s"${stripBrackets(mailFrom)}", channel)
-
-_ <- writeToChannel(hello, channel)
-_ <- putStrLn(s"Wrote hello to socket")
-
-data <- readFromChannel(channel)
-_    <- putStrLn(s"Result 4: $data")
-
-_ <- writeToChannel(pleaseStart, channel)
-_ <- putStrLn(s"Wrote hello to socket")
-
-data <- readAllFromChannel(channel)
-_    <- putStrLn(s"Result 5: $data")
 
 msg <- ZIO.effect {
 val session = Session.getDefaultInstance(new Properties())
 new MimeMessage(session, new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
 }
-_ <- putStrLn(s"Da MimeMessage: ${msg.getSender}")
-_ <- putStrLn(s"Da MimeMessage: ${printRecipients(msg.getAllRecipients)}")
-_ <- putStrLn(s"Da MimeMessage: ${msg.getMessageID}")
-_ <- putStrLn(s"Da MimeMessage: ${msg.getContentType}")
-
-_ <- writeToChannel(queued, channel)
-_ <- putStrLn(s"Wrote queued to socket")
-
-data <- readFromChannel(channel)
-_    <- putStrLn(s"Result 6: $data")
-
-_ <- writeToChannel(goodbye, channel)
-_ <- putStrLn(s"Wrote goodbye to socket")
-
-_ <- channel.shutdownInput
-_ <- putStrLn("Shutdown input")
-_ <- channel.shutdownOutput
-_ <- putStrLn("Shutdown output")
  */
