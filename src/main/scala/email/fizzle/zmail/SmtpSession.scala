@@ -3,9 +3,10 @@ package email.fizzle.zmail
 import java.io.ByteArrayInputStream
 
 import email.fizzle.zmail.MailServer.ReplyCode.READY
-import email.fizzle.zmail.MailServer.{ readFromChannel, ReplyCode }
+import email.fizzle.zmail.MailServer.{ ReplyCode, readFromChannel }
 import email.fizzle.zmail.Smtp._
 import zio.blocking.Blocking
+import zio.console.putStrLn
 import zio.nio.channels.AsynchronousSocketChannel
 import zio.stream.{ Sink, ZStream, ZTransducer }
 import zio.{ Chunk, IO, ZIO }
@@ -14,10 +15,11 @@ import scala.collection.mutable
 
 case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log()) {
 
-  def run = for {
+  def run = (for {
     msg <- handshake
     msg <- main(msg)
-  } yield msg
+    _ <- putStrLn(log.logs.mkString("\n"))
+  } yield msg).tapError(x => putStrLn(s"\n###############ERROR $x\n${log.logs.mkString("\n")}"))
 
   def handshake =
     for {
@@ -38,7 +40,10 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
     def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
       cmd match {
-        case Quit                => ZIO.succeed(msg)
+        case Quit                =>
+          for {
+            _ <- respond(ReplyCode.CLOSING, "Goodbye")
+          } yield msg
         case Helo(domain)        =>
           for {
             msg <- helo(domain, msg)
@@ -105,6 +110,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     for {
       _    <- respond(ReplyCode.START, s"Ready to receive data")
       data <- readAllFromChannel(channel)
+      _    <- respond(ReplyCode.OK, s"Mail queued.")
     } yield msg.setData(data)
 
   private def respond(code: ReplyCode, txt: String) = {

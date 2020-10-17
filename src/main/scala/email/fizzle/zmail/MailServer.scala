@@ -105,7 +105,7 @@ object MailServer extends App {
       for {
         _          <- putStrLn("New doWork")
         rawMessage <- SmtpSession(channel).run
-        _          <- putStrLn(s"Finished with \n$rawMessage")
+        _          <- putStrLn(s"Finished with a message from ${rawMessage.mailFrom} for ${rawMessage.recipients}.")
       } yield ()
 
     // read the entire message, which might fail because of wrong recipients or other problems
