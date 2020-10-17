@@ -9,7 +9,7 @@ import javax.mail.internet.MimeMessage
 import javax.mail.{ Address, Session }
 import zio.blocking.Blocking
 import zio.clock.Clock
-import zio.console.{ Console, putStrLn }
+import zio.console.{ putStrLn, Console }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 import zio.nio.core.SocketAddress
 import zio.stream.{ Sink, ZStream, ZTransducer }
@@ -21,13 +21,13 @@ object MailServer extends App {
     for {
       _ <- SocketAddress.inetSocketAddress("0.0.0.0", 8125) >>= socket.bind
       _ <- socket.accept.preallocate
-            .flatMap(
-              _.ensuring(putStrLn("Connection closed"))
-                .use(channel => doWork(channel).catchAll(ex => putStrLn(ex.getMessage + ex.toString)))
-                .fork
-            )
-            .forever
-            .fork
+             .flatMap(
+               _.ensuring(putStrLn("Connection closed"))
+                 .use(channel => doWork(channel).catchAll(ex => putStrLn(ex.getMessage + ex.toString)))
+                 .fork
+             )
+             .forever
+             .fork
       _ <- putStrLn("Mail Server has started")
     } yield ()
   }.useForever
@@ -71,8 +71,8 @@ object MailServer extends App {
       for {
         chunk   <- readFromChannel(channel)
         proceed <- ZIO.succeed(chunk.length == 256)
-        all <- if (proceed) recurse(channel, result :+ chunk)
-              else ZIO.succeed(result :+ chunk)
+        all     <- if (proceed) recurse(channel, result :+ chunk)
+                   else ZIO.succeed(result :+ chunk)
       } yield all
 
     recurse(channel, Seq()).map(_.mkString)
@@ -86,7 +86,7 @@ object MailServer extends App {
 
   def stripBrackets(s: String) = {
     val trimmed = s.trim()
-    val start =
+    val start   =
       if (trimmed.startsWith("<")) trimmed.substring(1)
       else trimmed
     if (start.endsWith(">")) start.substring(0, start.length - 1)
@@ -103,16 +103,15 @@ object MailServer extends App {
   def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] = {
     val process =
       for {
-      _ <- putStrLn("New doWork")
+        _          <- putStrLn("New doWork")
         rawMessage <- SmtpSession(channel).run
-        _ <- putStrLn(s"Finished with \n$rawMessage")
+        _          <- putStrLn(s"Finished with \n$rawMessage")
       } yield ()
 
     // read the entire message, which might fail because of wrong recipients or other problems
 // store the session transcript (which should never fail)
 // store the message somewhere
 // in case of success, parse with javamail into - ja wat eigenlijk?
-
 
     process.whenM(channel.isOpen).forever
   }

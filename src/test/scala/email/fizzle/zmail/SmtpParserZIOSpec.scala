@@ -6,7 +6,7 @@ import zio.test._
 
 object SmtpParserZIOSpec extends DefaultRunnableSpec {
 
-  def spec = {
+  def spec =
     suite("SmtpParserZIOSpec")(
       testM("SmtpParser parses EHLO with domain") {
         for {
@@ -14,5 +14,4 @@ object SmtpParserZIOSpec extends DefaultRunnableSpec {
         } yield assert(cmd)(equalTo(Ehlo(Domain("willems-mbp-2.fritz.box"))))
       }
     )
-  }
 }

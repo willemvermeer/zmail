@@ -2,33 +2,28 @@ package email.fizzle.zmail
 
 import java.io.ByteArrayInputStream
 
-import email.fizzle.zmail.MailServer.ReplyCode
 import email.fizzle.zmail.MailServer.ReplyCode.READY
-import email.fizzle.zmail.Smtp.{ Command, Domain, Ehlo, Helo, MailFrom, Quit, RcptTo }
+import email.fizzle.zmail.MailServer.{ readFromChannel, ReplyCode }
+import email.fizzle.zmail.Smtp._
 import zio.blocking.Blocking
-import zio.console.putStrLn
 import zio.nio.channels.AsynchronousSocketChannel
 import zio.stream.{ Sink, ZStream, ZTransducer }
-import zio.{ Chunk, ZIO }
+import zio.{ Chunk, IO, ZIO }
 
 import scala.collection.mutable
-
 
 case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log()) {
 
   def run = for {
-    _ <- putStrLn("run")
     msg <- handshake
-    _ <- putStrLn("hand has been shaken")
     msg <- main(msg)
-    _ <- putStrLn("Done with main")
   } yield msg
 
   def handshake =
     for {
       remoteAddress <- channel.remoteAddress.orElseSucceed(None)
       _             <- logInbound(s"Begin interaction with $remoteAddress")
-      _ <- respond(READY, "fizzle.email Fizzle SMTP Service")
+      _             <- respond(READY, "fizzle.email Fizzle SMTP Service")
     } yield RawMessage()
 
   def main(msg: RawMessage) = {
@@ -37,39 +32,44 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
       for {
         line <- readLineFromChannel
 
-        _ <- logInbound(line)
+        _       <- logInbound(line)
         command <- SmtpParser.parse(line)
       } yield command
 
-    def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] = {
+    def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
       cmd match {
-          case Quit => ZIO.succeed(msg)
-          case Helo(domain) =>
-            for {
-              msg <- helo(domain, msg)
-              cmd <- nextCommand
-              msg <- recurse(cmd, msg)
-            } yield msg
-          case Ehlo(domain) =>
-            for {
-              msg <- ehlo(domain, msg)
-              cmd <- nextCommand
-              msg <- recurse(cmd, msg)
-            } yield msg
-          case mf @ MailFrom(path) =>
-            for {
-              msg <- mailFrom(mf, msg)
-              cmd <- nextCommand
-              msg <- recurse(cmd, msg)
-            } yield msg
-          case mf @ RcptTo(path) =>
-            for {
-              msg <- rcptTo(mf, msg)
-              cmd <- nextCommand
-              msg <- recurse(cmd, msg)
-            } yield msg
-        }
-    }
+        case Quit                => ZIO.succeed(msg)
+        case Helo(domain)        =>
+          for {
+            msg <- helo(domain, msg)
+            cmd <- nextCommand
+            msg <- recurse(cmd, msg)
+          } yield msg
+        case Ehlo(domain)        =>
+          for {
+            msg <- ehlo(domain, msg)
+            cmd <- nextCommand
+            msg <- recurse(cmd, msg)
+          } yield msg
+        case mf @ MailFrom(path) =>
+          for {
+            msg <- mailFrom(mf, msg)
+            cmd <- nextCommand
+            msg <- recurse(cmd, msg)
+          } yield msg
+        case mf @ RcptTo(path)   =>
+          for {
+            msg <- rcptTo(mf, msg)
+            cmd <- nextCommand
+            msg <- recurse(cmd, msg)
+          } yield msg
+        case Data                =>
+          for {
+            msg <- data(msg)
+            cmd <- nextCommand
+            msg <- recurse(cmd, msg)
+          } yield msg
+      }
 
     for {
       cmd <- nextCommand
@@ -78,11 +78,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
   }
 
-  val hello           = "Hello"
-  val pleaseStart     = "354 Please start mail input, and finish with a new line and a '.' followed by a newline."
-  val queued          = "250 Mail queued for delivery."
-  val goodbye         = "221 Goodbye."
-  val failUnknownHost = "555  MAIL FROM/RCPT TO parameters not recognized or not implemented"
+  val hello = "Hello"
 
   private def helo(domain: Domain, msg: RawMessage) =
     for {
@@ -91,7 +87,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
   private def ehlo(domain: Domain, msg: RawMessage) =
     for {
-    // TODO: tell client what msgs we support
+      // TODO: tell client what msgs we support
       _ <- respond(ReplyCode.OK, hello)
     } yield msg.addDomain(domain)
 
@@ -104,6 +100,12 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     for {
       _ <- respond(ReplyCode.OK, s"OK")
     } yield msg.addRecipient(Recipient(rcptTo.path.path))
+
+  private def data(msg: RawMessage) =
+    for {
+      _    <- respond(ReplyCode.START, s"Ready to receive data")
+      data <- readAllFromChannel(channel)
+    } yield msg.setData(data)
 
   private def respond(code: ReplyCode, txt: String) = {
     val totalMsg = s"${code.code} $txt\r\n"
@@ -129,6 +131,18 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
       .take(256)
       .transduce(ZTransducer.utf8Decode)
       .run(Sink.foldLeft("")(_ + (_: String)))
+
+  private def readAllFromChannel(channel: AsynchronousSocketChannel) = {
+    def recurse(channel: AsynchronousSocketChannel, result: Seq[String]): IO[Nothing, Seq[String]] =
+      for {
+        chunk   <- readFromChannel(channel)
+        proceed <- ZIO.succeed(chunk.length == 256)
+        all     <- if (proceed) recurse(channel, result :+ chunk)
+                   else ZIO.succeed(result :+ chunk)
+      } yield all
+
+    recurse(channel, Seq()).map(_.mkString)
+  }
 
 }
 
@@ -201,4 +215,4 @@ _ <- channel.shutdownInput
 _ <- putStrLn("Shutdown input")
 _ <- channel.shutdownOutput
 _ <- putStrLn("Shutdown output")
-*/
+ */
