@@ -2,7 +2,10 @@ package email.fizzle.zmail
 
 import email.fizzle.zmail.Smtp.{ Domain, MailFrom, RcptTo }
 
-case class Recipient(mailbox: String) // for simplicity the mailbox is just a String
+case class Recipient(mailbox: String) {
+  def domain = mailbox.substring(mailbox.indexOf("@") + 1)
+  def localName = mailbox.substring(0, mailbox.indexOf("@"))
+}
 case class RawMessage(
   recipients: Seq[Recipient] = Seq(),
   domain: Option[Domain] = None,
@@ -16,6 +19,6 @@ case class RawMessage(
 
   def addMailFrom(mailFrom: MailFrom) = this.copy(mailFrom = Some(mailFrom))
 
-  def setData(data: String) = this.copy(data = Some(data))
+  def addData(data: String) = this.copy(data = Some(data))
 
 }

@@ -13,7 +13,7 @@ import java.util.Properties;
 public class SendEmail
 {
 	public static void main(String [] args){
-		String to = "willem.vermeer@gmail.com";//change accordingly
+		String to = "willem.vermeer@fizzle.email";//change accordingly
 		String from = "sonoojaiswal1987@gmail.com";//change accordingly
 		String host = "localhost";//or IP address
 		String port = "8125";

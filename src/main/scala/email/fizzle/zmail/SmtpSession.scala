@@ -58,7 +58,7 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
           _    <- respond(ReplyCode.START, s"Ready to receive data")
           data <- readAllFromChannel(channel)
           _    <- respond(ReplyCode.OK, s"Mail queued.")
-        } yield msg.setData(data)
+        } yield msg.addData(data)
     }
 
     def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
