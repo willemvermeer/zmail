@@ -3,7 +3,7 @@ package email.fizzle.zmail
 import email.fizzle.zmail.Smtp.{ Domain, MailFrom, RcptTo }
 
 case class Recipient(mailbox: String) {
-  def domain = mailbox.substring(mailbox.indexOf("@") + 1)
+  def domain    = mailbox.substring(mailbox.indexOf("@") + 1)
   def localName = mailbox.substring(0, mailbox.indexOf("@"))
 }
 case class RawMessage(

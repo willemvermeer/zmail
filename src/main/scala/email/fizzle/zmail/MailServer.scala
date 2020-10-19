@@ -7,7 +7,7 @@ import java.util.UUID
 
 import zio.blocking.Blocking
 import zio.clock.Clock
-import zio.console.{ Console, putStrLn }
+import zio.console.{ putStrLn, Console }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 import zio.nio.core.SocketAddress
 import zio.nio.core.file.Path
@@ -60,17 +60,16 @@ object MailServer extends App {
   }
 
   def writeMsgToFile(data: String, localName: String) = {
-    val path = s"/tmp/zmail/$localName"
+    val path     = s"/tmp/zmail/$localName"
     val filename = s"$path/${UUID.randomUUID().toString}"
-    val from =
+    val from     =
       ZStream.fromInputStream(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
-    val to   = ZSink.fromFile(Paths.get(filename))
+    val to       = ZSink.fromFile(Paths.get(filename))
     for {
       _ <- Files.createDirectories(Path.apply(path))
       _ <- from.run(to)
     } yield ()
   }
-
 
   override def run(args: List[String]) =
     server.exitCode
