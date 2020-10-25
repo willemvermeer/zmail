@@ -1,3 +1,5 @@
+import com.sun.mail.smtp.SMTPSendFailedException;
+
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
@@ -11,10 +13,10 @@ import java.util.Properties;
 public class SendEmail
 {
 	public static void main(String [] args){
-		String to = "sonoojaiswal1988@gmail.com";//change accordingly
+		String to = "willem.vermeer@fizzle.email";//change accordingly
 		String from = "sonoojaiswal1987@gmail.com";//change accordingly
 		String host = "localhost";//or IP address
-		String port = "25";
+		String port = "8125";
 
 		//Get the session object
 		Properties properties = System.getProperties();
@@ -22,6 +24,7 @@ public class SendEmail
 		properties.setProperty("mail.smtp.port", port);
 		Session session = Session.getDefaultInstance(properties);
 
+		int success = 0;
 		for (int i=0; i<1; i++) {
 			//compose the message
 			try {
@@ -49,10 +52,14 @@ public class SendEmail
 				System.out.println("About to send message " + i);
 				Transport.send(message);
 				System.out.println("message sent successfully....");
-
+				success++;
 			} catch (MessagingException mex) {
 				mex.printStackTrace();
+				System.out.println(((SMTPSendFailedException)mex).getCommand());
+				System.out.println(((SMTPSendFailedException)mex).getReturnCode());
 			}
+
+			System.out.println("Successes: " + success);
 		}
 	}
 }
