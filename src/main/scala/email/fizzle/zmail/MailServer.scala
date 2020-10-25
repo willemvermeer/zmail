@@ -32,7 +32,6 @@ object MailServer extends App {
   }.useForever
 
   def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] = {
-    val dest    = "/tmp/willem"
     val process =
       for {
         rawMessage <- SmtpSession(channel).run

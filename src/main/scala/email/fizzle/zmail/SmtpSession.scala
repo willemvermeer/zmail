@@ -5,7 +5,7 @@ import java.io.ByteArrayInputStream
 import email.fizzle.zmail.ReplyCode._
 import email.fizzle.zmail.Smtp._
 import zio.blocking.Blocking
-import zio.console.putStrLn
+import zio.console.{ putStrLn, Console }
 import zio.nio.channels.AsynchronousSocketChannel
 import zio.stream.{ Sink, ZStream, ZTransducer }
 import zio.{ Chunk, IO, ZIO }
@@ -38,30 +38,30 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
     def handleCommand(cmd: Command, msg: RawMessage) = cmd match {
       case Helo(domain)           =>
         for {
-          _ <- respond(ReplyCode.OK, hello)
+          _ <- respond(ReplyCode.OK, "Hello")
         } yield msg.addDomain(domain)
       case Ehlo(domain)           =>
         for {
           // TODO: tell client what msgs we support
-          _ <- respond(ReplyCode.OK, hello)
+          _ <- respond(ReplyCode.OK, "Hello")
         } yield msg.addDomain(domain)
       case mailFrom @ MailFrom(_) =>
         for {
-          _ <- respond(ReplyCode.OK, s"OK")
+          _ <- respond(ReplyCode.OK, "OK")
         } yield msg.addMailFrom(mailFrom)
       case rcptTo @ RcptTo(_)     =>
         for {
-          _ <- respond(ReplyCode.OK, s"OK")
+          _ <- respond(ReplyCode.OK, "OK")
         } yield msg.addRecipient(Recipient(rcptTo.path.path))
       case Data                   =>
         for {
-          _    <- respond(ReplyCode.START, s"Ready to receive data")
+          _    <- respond(ReplyCode.START, "Ready to receive data")
           data <- readAllFromChannel(channel)
-          _    <- respond(ReplyCode.OK, s"Mail queued.")
+          _    <- respond(ReplyCode.OK, "Mail queued.")
         } yield msg.addData(data)
     }
 
-    def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking, Exception, RawMessage] =
+    def recurse(cmd: Command, msg: RawMessage): ZIO[Blocking with Console, Exception, RawMessage] =
       cmd match {
         case Quit =>
           for {
@@ -82,38 +82,38 @@ case class SmtpSession(channel: AsynchronousSocketChannel, log: Log = new Log())
 
   }
 
-  val hello = "Hello"
-
-  private def respond(code: ReplyCode, txt: String) = {
-    val totalMsg = s"${code.code} $txt\r\n"
+  private def respond(replyCode: ReplyCode, txt: String) = {
+    val totalMsg = s"${replyCode.code} $txt\r\n"
     logOutbound(totalMsg) *> writeToChannel(totalMsg, channel)
   }
 
   private def writeToChannel(txt: String, channel: AsynchronousSocketChannel) =
     ZStream.fromInputStream(new ByteArrayInputStream(txt.getBytes)).foreach { b =>
       for {
-        s <- channel.write(Chunk(b))
+        s <- channel.writeChunk(Chunk(b))
       } yield s
     }
 
   private def logOutbound(txt: String) = ZIO.succeed(log.append(s"<<<$txt"))
   private def logInbound(txt: String)  = ZIO.succeed(log.append(s">>>$txt"))
 
+  private val MAX_LINE_LENGTH = 1024 // according to rfc 5322 the maximum line length is 998 characters
+  // private val MAX_MSG_SIZE = 1024 * 1024 // put a 1Mb limit on the message size to avoid disk space exhaustion
+
   private def readLineFromChannel =
     ZStream
       .fromEffectOption(
-        channel.read(256).orElse(ZIO.fail(None))
+        channel.readChunk(MAX_LINE_LENGTH).tap(c => putStrLn(s"Read chunk of length ${c.size}")).orElse(ZIO.fail(None))
       )
       .flattenChunks
-      .take(256)
       .transduce(ZTransducer.utf8Decode)
-      .run(Sink.foldLeft("")(_ + (_: String)))
+      .run(Sink.foldLeft("")(_ + _))
 
   private def readAllFromChannel(channel: AsynchronousSocketChannel) = {
-    def recurse(channel: AsynchronousSocketChannel, result: Seq[String]): IO[Nothing, Seq[String]] =
+    def recurse(channel: AsynchronousSocketChannel, result: Seq[String]): ZIO[Console, Nothing, Seq[String]] =
       for {
         chunk   <- readLineFromChannel
-        proceed <- ZIO.succeed(chunk.length == 256)
+        proceed <- ZIO.succeed(chunk.length == MAX_LINE_LENGTH)
         all     <- if (proceed) recurse(channel, result :+ chunk)
                    else ZIO.succeed(result :+ chunk)
       } yield all
