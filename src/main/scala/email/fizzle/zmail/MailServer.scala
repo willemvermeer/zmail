@@ -31,31 +31,21 @@ object MailServer extends App {
     } yield ()
   }.useForever
 
-  def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] = {
-    val process =
-      for {
-        rawMessage <- SmtpSession(channel).run
-        _          <- putStrLn(s"Finished with a message from ${rawMessage.mailFrom} for ${rawMessage.recipients}.")
-        bWritten   <- rawMessage.data match {
-                        case Some(data) =>
-                          // alle to's naar fizzle.email
-                          val recpts = rawMessage.recipients.filter(recp => recp.mailbox.endsWith("@fizzle.email"))
-                          ZIO.foreachPar(recpts) { recp =>
-                            writeMsgToFile(data, recp.localName)
-                          }
-                        case None       => ZIO.fail(new Exception("No data"))
-                      }
-        _          <- putStrLn(s"Wrote ${bWritten.length} files from ${rawMessage.mailFrom.map(_.path).getOrElse("-")}")
-      } yield ()
-
-    // read the entire message, which might fail because of wrong recipients or other problems
-// store the session transcript (which should never fail)
-// store the message somewhere
-// in case of success, parse with javamail into - ja wat eigenlijk?
-
-//    process.whenM(channel.isOpen).forever
-    process
-  }
+  def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] =
+    for {
+      rawMessage <- SmtpSession(channel).run
+      _          <- putStrLn(s"Finished with a message from ${rawMessage.mailFrom} for ${rawMessage.recipients}.")
+      bWritten   <- rawMessage.data match {
+                      case Some(data) =>
+                        // all to's for fizzle.email
+                        val recpts = rawMessage.recipients.filter(recp => recp.mailbox.endsWith("@fizzle.email"))
+                        ZIO.foreachPar(recpts) { recp =>
+                          writeMsgToFile(data, recp.localName)
+                        }
+                      case None       => ZIO.fail(new Exception("No data"))
+                    }
+      _          <- putStrLn(s"Wrote ${bWritten.length} files from ${rawMessage.mailFrom.map(_.path).getOrElse("-")}")
+    } yield ()
 
   def writeMsgToFile(data: String, localName: String) = {
     import java.time._
