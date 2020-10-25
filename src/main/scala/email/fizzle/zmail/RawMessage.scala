@@ -11,7 +11,7 @@ case class RawMessage(
   domain: Option[Domain] = None,
   mailFrom: Option[MailFrom] = None,
   data: Option[String] = None
-) {
+)                                     {
 
   def addRecipient(recipient: Recipient) = this.copy(recipients = recipients :+ recipient)
 

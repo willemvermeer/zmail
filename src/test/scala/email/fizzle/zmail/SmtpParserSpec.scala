@@ -40,8 +40,8 @@ class SmtpParserSpec extends AnyFlatSpec with should.Matchers {
     println(fastparse.parse("<aa.ee@bb.com>", SmtpParser.reversepath(_)))
     println(fastparse.parse("<sonoojaiswal1987@gmail.com>", SmtpParser.reversepath(_)))
     fastparse.parse("MAIL FROM:<sonoojaiswal1987@gmail.com>", SmtpParser.mailfrom(_)) shouldBe Parsed.Success(
-      MailFrom(ReversePath("sonoojaisswal1987@gmail.com")),
-      28
+      MailFrom(ReversePath("sonoojaiswal1987@gmail.com")),
+      38
     )
   }
   "The SmtpParser" should "not parse vermeer" in {

@@ -3,7 +3,6 @@ package email.fizzle.zmail
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
-import java.util.UUID
 
 import zio.blocking.Blocking
 import zio.clock.Clock
@@ -42,12 +41,12 @@ object MailServer extends App {
                         case Some(data) =>
                           // alle to's naar fizzle.email
                           val recpts = rawMessage.recipients.filter(recp => recp.mailbox.endsWith("@fizzle.email"))
-                          ZIO.foreach(recpts) { recp =>
+                          ZIO.foreachPar(recpts) { recp =>
                             writeMsgToFile(data, recp.localName)
                           }
                         case None       => ZIO.fail(new Exception("No data"))
                       }
-        _          <- putStrLn(s"Wrote $bWritten bytes from ${rawMessage.mailFrom.map(_.path).getOrElse("-")}")
+        _          <- putStrLn(s"Wrote ${bWritten.length} files from ${rawMessage.mailFrom.map(_.path).getOrElse("-")}")
       } yield ()
 
     // read the entire message, which might fail because of wrong recipients or other problems
@@ -60,8 +59,10 @@ object MailServer extends App {
   }
 
   def writeMsgToFile(data: String, localName: String) = {
+    import java.time._
     val path     = s"/tmp/zmail/$localName"
-    val filename = s"$path/${UUID.randomUUID().toString}"
+    val now      = LocalDateTime.now(ZoneId.of("UTC"))
+    val filename = s"$path/$now"
     val from     =
       ZStream.fromInputStream(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)))
     val to       = ZSink.fromFile(Paths.get(filename))
