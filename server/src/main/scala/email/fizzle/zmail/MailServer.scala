@@ -4,6 +4,11 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
+import email.fizzle.service.ZioService._
+import email.fizzle.service.{ GetMailBoxRequest, GetMessageRequest, MailBox, MailBoxEntry }
+import io.grpc.ServerBuilder
+import io.grpc.protobuf.services.ProtoReflectionService
+import scalapb.zio_grpc.ServerLayer
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.console.{ putStrLn, Console }
@@ -16,7 +21,9 @@ import zio.{ App, ZIO }
 
 object MailServer extends App {
 
-  val server = AsynchronousServerSocketChannel().mapM { socket =>
+  val grpcPort = 9000
+
+  val smtpServer = AsynchronousServerSocketChannel().mapM { socket =>
     for {
       _ <- SocketAddress.inetSocketAddress("0.0.0.0", 8125) >>= socket.bind
       _ <- socket.accept.preallocate
@@ -61,7 +68,23 @@ object MailServer extends App {
     } yield ()
   }
 
+  class AbcService extends MailBoxService {
+    override def getMailBox(request: GetMailBoxRequest) =
+      ZIO.succeed(MailBox(request.username, entries = Seq(), total = 42))
+
+    override def getMessage(request: GetMessageRequest) =
+      ZIO.succeed(MailBoxEntry(from = "sender@email.com", to = "nowhere", when = "now", size = 123))
+
+  }
+
+  val grpcServer = {
+    val serverBuilder = ServerBuilder.forPort(grpcPort).addService(ProtoReflectionService.newInstance())
+    ServerLayer.fromService(serverBuilder, new AbcService())
+  }
+
   override def run(args: List[String]) =
-    server.exitCode
+//    (smtpServer *> grpcServer.build.useForever).exitCode
+    grpcServer.build.useForever.exitCode
+//    smtpServer.exitCode
 
 }

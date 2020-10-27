@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+// Causes top-level messages, enums, and services to be defined at the package level, rather than inside an outer class named after the .proto file.
+option java_multiple_files = true;
+// The package you want to use for your generated Java classes.
+option java_package = "email.fizzle";
+// The class name for the outermost Java class (and hence the file name) you want to generate.
+option java_outer_classname = "MailService";
+
+package fizzle;
+
+service MailBoxService {
+    rpc GetMailBox (GetMailBoxRequest) returns (MailBox) {}
+    rpc GetMessage (GetMessageRequest) returns (MailBoxEntry) {}
+}
+
+message GetMailBoxRequest {
+    string username = 1;
+}
+message GetMessageRequest {
+    string username = 1;
+    string id       = 2;
+}
+message MailBoxEntry {
+    string from = 1;
+    string to   = 2;
+    string when = 3;
+    int32 size  = 4;
+}
+
+message MailBox {
+    string username               = 1;
+    repeated MailBoxEntry entries = 2;
+    int32 total                   = 3;
+}
