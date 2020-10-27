@@ -36,7 +36,7 @@ object MailServer extends App {
              .fork
       _ <- putStrLn("Mail Server has started")
     } yield ()
-  }.useForever
+  }
 
   def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking, Throwable, Unit] =
     for {
@@ -83,8 +83,6 @@ object MailServer extends App {
   }
 
   override def run(args: List[String]) =
-//    (smtpServer *> grpcServer.build.useForever).exitCode
-    grpcServer.build.useForever.exitCode
-//    smtpServer.exitCode
+    (smtpServer.zip(grpcServer.build)).useForever.exitCode
 
 }
