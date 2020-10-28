@@ -1,0 +1,19 @@
+version: "3.3"
+services:
+  nginx:
+    build:
+      dockerfile: Dockerfile-nginx
+      context: .
+    volumes:
+    - type: bind
+      source: ./webapp/target/scala-2.12/scalajs-bundler/main
+      target: /usr/share/nginx/html/js/
+    ports:
+      - 80
+
+  envoy:
+    build:
+      dockerfile: Dockerfile-envoy
+      context: .
+    ports:
+    - "8080:8080"

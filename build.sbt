@@ -77,6 +77,7 @@ lazy val webapp = project
     scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
     webpackBundlingMode := BundlingMode.LibraryOnly(),
     libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time" % "2.0.0",
       "org.scala-js"      %%% "scalajs-dom"     % "1.0.0"
     ),
     scalaJSUseMainModuleInitializer := true,
