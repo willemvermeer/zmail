@@ -3,18 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <title>Fizzle email</title>
+    <style type='text/css'>
+        body {
+            color:#000000;
+            background-color:#ffffff;
+        }
+        h1 {
+            font-size: xx-large;
+        }
+        .header {
+            padding: 20px;
+            background-color:#cccccc;
+            font-family:courier, courier new, serif;
+        }
+        .center {
+            text-align: center;
+        }
+        .main {
+            background-color: white;
+        }
+
+    </style>
 </head>
 <body>
 <!-- Include Scala.js compiled code -->
-<p>Header:</p>
-<div id="header"></div>
+<div class="header">
+    <div class="center"><h1>fizzle.email</h1></div>
+    <div class="center"><h3>where your mails fizzle out within 24 hours</h3></div>
+</div>
+<div class="main">
+    <div class="left">
+        <p>Go directly to your mailbox</p>
+        <form action="mailbox.html">
+            <input type="text" id="name" name="name"/>
+            <input type="submit" value="go >"/>
+        </form>
+    </div>
+    <div class="middle">
+        <p>fizzle.email is a free mail service you can use when you need a temporary mail address. At fizzle all emails fizzle out after 24 hours.</p>
+        <p>fizzle automatically creates a new mailbox for each email it receives on its domain.</p>
+    </div>
+</div>
 <script type="text/javascript" src="/js/webapp-fastopt-library.js"></script>
 <script type="text/javascript" src="/js/webapp-fastopt-loader.js"></script>
 <script type="text/javascript" src="/js/webapp-fastopt.js"></script>
-
-<!--<script type="text/javascript" src="./webapp/target/scala-2.12/scalajs-bundler/main/webapp-fastopt-library.js"></script>-->
-<!--<script type="text/javascript" src="./webapp/target/scala-2.12/scalajs-bundler/main/webapp-fastopt-loader.js"></script>-->
-<!--<script type="text/javascript" src="./webapp/target/scala-2.12/scalajs-bundler/main/webapp-fastopt.js"></script>-->
-
 </body>
 </html>
