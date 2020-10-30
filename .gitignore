@@ -76,3 +76,5 @@ project/project/target/**
 
 # Used by previous versions of JEnv
 .jenv-version
+/protos/js/target/**
+/protos/jvm/target/**
