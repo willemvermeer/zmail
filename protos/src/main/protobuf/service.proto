@@ -6,6 +6,7 @@ option java_multiple_files = true;
 option java_package = "email.fizzle";
 // The class name for the outermost Java class (and hence the file name) you want to generate.
 option java_outer_classname = "MailService";
+option objc_class_prefix = "HLW";
 
 package fizzle;
 

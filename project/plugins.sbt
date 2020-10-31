@@ -1,4 +1,4 @@
-val zioGrpcVersion = "0.4.0-RC1"
+val zioGrpcVersion = "0.4.0"
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
@@ -17,3 +17,4 @@ addSbtPlugin("ch.epfl.scala"      % "sbt-scalafix"             % "0.9.17")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.15.0")
 
+addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
