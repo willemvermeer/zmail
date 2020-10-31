@@ -55,10 +55,10 @@ object MailServer extends App {
     //.addService(ProtoReflectionService.newInstance())
   )
 
-  val appEnv = (Console.live ++ messageStore) >>> liveService >>> grpcServer ++ messageStore
+  val appEnv = (Console.live ++ messageStore) >>> liveService ++ messageStore
 
   override def run(args: List[String]) =
-    (welcome.forever).provideLayer(appEnv ++ Console.live).exitCode
+    (welcome *> grpcServer.build.useForever).provideLayer(appEnv ++ Console.live).exitCode
 }
 
 /**
