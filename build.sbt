@@ -7,7 +7,7 @@ version := "0.1"
 scalaVersion := "2.13.3"
 
 val grpcVersion = "1.30.2"
-val zioVersion = "1.0.1"
+val zioVersion = "1.0.3"
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 

@@ -6,14 +6,14 @@ import scalapb.grpc.Channels
 import scalapb.zio_grpc.ZManagedChannel
 import org.scalajs.dom
 import zio.{ App, ZIO }
-import zio.console.{ Console, putStrLn }
+import zio.console.{ putStrLn, Console }
 
 object WebappMain extends App {
   val appLogic = for {
     _        <- putStrLn("Hello console 1")
     response <- MailBoxServiceClient.getMailBox(GetMailBoxRequest(username = "willem.vermeer"))
     _        <- putStrLn(response.toString)
-    _ <- ZIO.effectTotal(dom.document.getElementById("header").innerHTML = response.username)
+    _        <- ZIO.effectTotal(dom.document.getElementById("header").innerHTML = response.username)
     _        <- putStrLn("Hello console 2")
   } yield ()
 

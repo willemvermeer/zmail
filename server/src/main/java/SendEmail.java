@@ -1,8 +1,5 @@
 import com.sun.mail.smtp.SMTPSendFailedException;
 
-import javax.activation.DataHandler;
-import javax.activation.DataSource;
-import javax.activation.FileDataSource;
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
@@ -39,12 +36,12 @@ public class SendEmail
 				MimeMultipart multipart = new MimeMultipart();
 				multipart.addBodyPart(messageBodyPart);
 
-				messageBodyPart = new MimeBodyPart();
-				String filename = "/Users/willem/Desktop/image.png";
-				DataSource source = new FileDataSource(filename);
-				messageBodyPart.setDataHandler(new DataHandler(source));
-				messageBodyPart.setFileName(filename);
-				multipart.addBodyPart(messageBodyPart);
+//				messageBodyPart = new MimeBodyPart();
+//				String filename = "/Users/willem/Desktop/image.png";
+//				DataSource source = new FileDataSource(filename);
+//				messageBodyPart.setDataHandler(new DataHandler(source));
+//				messageBodyPart.setFileName(filename);
+//				multipart.addBodyPart(messageBodyPart);
 
 				message.setContent(multipart);
 
