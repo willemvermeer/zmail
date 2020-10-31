@@ -22,7 +22,6 @@ import zio.stream.{ ZSink, ZStream }
 import zio.{ App, Has, Layer, ZEnv, ZIO, ZLayer }
 
 class LiveService(messageStore: MessageStore.Service, console: Console.Service) extends MailBoxService {
-  //: ZIO[Console with MessageStore, Status, MailBox]
   override def getMailBox(request: GetMailBoxRequest) =
     for {
       _ <- console.putStrLn(s"GetMailBox for ${request.username}")
@@ -50,10 +49,10 @@ object MailServer extends App {
     ZLayer.fromServices[MessageStore.Service, Console.Service, MailBoxService]{ (store: MessageStore.Service, console: Console.Service) =>
     new LiveService(store, console)
   }
-  val grpcServer: ZLayer[Has[MailBoxService], Throwable, Server] = Server.live[MailBoxService](
-    ServerBuilder.forPort(9000)
-    //.addService(ProtoReflectionService.newInstance())
-  )
+  val grpcServer: ZLayer[Has[MailBoxService], Throwable, Server] = Server.live[MailBoxService] {
+    val s: ServerBuilder[_] = ServerBuilder.forPort(9000).addService(ProtoReflectionService.newInstance())
+    s
+  }
 
   val appEnv = (Console.live ++ messageStore) >>> liveService ++ messageStore
 
