@@ -19,33 +19,16 @@ import zio.nio.core.SocketAddress
 import zio.nio.core.file.Path
 import zio.nio.file.Files
 import zio.stream.{ ZSink, ZStream }
-import zio.{ App, Has, ZEnv, ZIO, ZLayer }
+import zio.{ App, Has, Layer, ZEnv, ZIO, ZLayer }
 
-/**
- * Dit werkt:
-object LiveService extends ZMailBoxService[ZEnv, Any] {
+class LiveService(messageStore: MessageStore.Service, console: Console.Service) extends MailBoxService {
   //: ZIO[Console with MessageStore, Status, MailBox]
   override def getMailBox(request: GetMailBoxRequest) =
     for {
-      _ <- putStrLn(s"GetMailBox for ${request.username}")
+      _ <- console.putStrLn(s"GetMailBox for ${request.username}")
+      msgs <- messageStore.getMessages(EmailAddress(request.username)).mapError(x => Status.INTERNAL) // TODO: better error mgmt
       result <- ZIO.succeed(MailBox("test", entries = Seq(), total = 42))
-    } yield result
-
-  override def getMessage(request: GetMessageRequest) =
-    ZIO.succeed(MailBoxEntry(from = "sender@email.com", to = "nowhere", when = "now", size = 123))
-}
-
-object MailServer extends ServerMain {
-  def services: ServiceList[zio.ZEnv] = ServiceList.add(LiveService)
-}
-*/
-
-class LiveService extends ZMailBoxService[Console, Any] {
-  //: ZIO[Console with MessageStore, Status, MailBox]
-  override def getMailBox(request: GetMailBoxRequest) =
-    for {
-      _ <- putStrLn(s"GetMailBox for ${request.username}")
-      result <- ZIO.succeed(MailBox("test", entries = Seq(), total = 42))
+      _ <- console.putStrLn(s"Found $msgs in store")
     } yield result
 
   override def getMessage(request: GetMessageRequest) =
@@ -62,17 +45,20 @@ object MailServer extends App {
       _ <- putStrLn(s"Store has $msgs")
     } yield ()
 
-  val messageStore = MessageStore.live
-
-  val grpcServer = {
-    val serverBuilder = ServerBuilder.forPort(9000).addService(ProtoReflectionService.newInstance())
-    ServerLayer.fromService(serverBuilder, new LiveService())
+  val messageStore: Layer[Nothing, MessageStoreT] = MessageStore.live
+  val liveService: ZLayer[Has[MessageStore.Service] with Console, Nothing, Has[MailBoxService]] =
+    ZLayer.fromServices[MessageStore.Service, Console.Service, MailBoxService]{ (store: MessageStore.Service, console: Console.Service) =>
+    new LiveService(store, console)
   }
+  val grpcServer: ZLayer[Has[MailBoxService], Throwable, Server] = Server.live[MailBoxService](
+    ServerBuilder.forPort(9000)
+    //.addService(ProtoReflectionService.newInstance())
+  )
 
-  val appEnv = Console.live ++ MessageStore.live
+  val appEnv = (Console.live ++ messageStore) >>> liveService >>> grpcServer ++ messageStore
 
   override def run(args: List[String]) =
-    (welcome *> grpcServer.build.useForever).provideLayer(appEnv).exitCode
+    (welcome.forever).provideLayer(appEnv ++ Console.live).exitCode
 }
 
 /**
