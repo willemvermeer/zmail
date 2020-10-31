@@ -2,7 +2,7 @@ package email.fizzle.zmail
 
 import java.time.LocalDateTime
 
-import zio.{ Has, IO, Layer, Ref, UIO, ZIO, ZLayer }
+import zio.{ Has, IO, Layer, Ref, UIO, ZIO }
 
 case class MessageId(id: String)
 case class EmailAddress(mail: String)
@@ -13,7 +13,7 @@ case class MessageList(msgs: Seq[Message]) {
 
 object MessageStore {
 
-  type MessageStoreT = Has[MessageStore.Service]
+  type MessageStore = Has[MessageStore.Service]
   type StoreElt = Map[EmailAddress, MessageList]
 
   trait Service {
@@ -46,6 +46,6 @@ object MessageStore {
       } yield result
   }
 
-  val live: Layer[Nothing, MessageStoreT] = Ref.make(Map[EmailAddress, MessageList]()).map(MessageStoreImpl).toLayer
+  val live: Layer[Nothing, MessageStore] = Ref.make(Map[EmailAddress, MessageList]()).map(MessageStoreImpl).toLayer
 
 }

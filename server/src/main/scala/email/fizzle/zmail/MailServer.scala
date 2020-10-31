@@ -6,14 +6,14 @@ import java.nio.file.Paths
 
 import email.fizzle.service.ZioService._
 import email.fizzle.service.{ GetMailBoxRequest, GetMessageRequest, MailBox, MailBoxEntry }
-import email.fizzle.zmail.MessageStore.MessageStoreT
+import email.fizzle.zmail.MessageStore.MessageStore
 import io.grpc.{ ServerBuilder, Status }
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalapb.zio_grpc.{ RequestContext, Server, ServerLayer, ServerMain, ServiceList }
 import zio.blocking.Blocking
 import zio.duration._
 import zio.clock.Clock
-import zio.console.{ Console, putStrLn }
+import zio.console.{ Console, putStr, putStrLn }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 import zio.nio.core.SocketAddress
 import zio.nio.core.file.Path
@@ -37,34 +37,6 @@ class LiveService(messageStore: MessageStore.Service, console: Console.Service) 
 object MailServer extends App {
 //  def services: ServiceList[zio.ZEnv] = ServiceList.add(LiveService)
 
-  def welcome: ZIO[Console with MessageStoreT, Throwable, Unit] =
-    for {
-      _ <- putStrLn("Grpc server is running. Press Ctrl-C to stop.")
-      msgs <- ZIO.accessM[MessageStoreT](_.get.getMessages(EmailAddress("willem.vermeer"))).catchAll(x => putStrLn((s"Error ${x.msg} ignored")) *> ZIO.succeed(0))
-      _ <- putStrLn(s"Store has $msgs")
-    } yield ()
-
-  val messageStore: Layer[Nothing, MessageStoreT] = MessageStore.live
-  val liveService: ZLayer[Has[MessageStore.Service] with Console, Nothing, Has[MailBoxService]] =
-    ZLayer.fromServices[MessageStore.Service, Console.Service, MailBoxService]{ (store: MessageStore.Service, console: Console.Service) =>
-    new LiveService(store, console)
-  }
-  val grpcServer: ZLayer[Has[MailBoxService], Throwable, Server] = Server.live[MailBoxService] {
-    val s: ServerBuilder[_] = ServerBuilder.forPort(9000).addService(ProtoReflectionService.newInstance())
-    s
-  }
-
-  val appEnv = (Console.live ++ messageStore) >>> liveService ++ messageStore
-
-  override def run(args: List[String]) =
-    (welcome *> grpcServer.build.useForever).provideLayer(appEnv ++ Console.live).exitCode
-}
-
-/**
-object MailServer extends App {
-
-  val grpcPort = 9000
-
   val smtpServer = AsynchronousServerSocketChannel().mapM { socket =>
     for {
       _ <- SocketAddress.inetSocketAddress("0.0.0.0", 8125) >>= socket.bind
@@ -80,7 +52,7 @@ object MailServer extends App {
     } yield ()
   }
 
-  def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking with MessageStoreT, Throwable, Unit] =
+  def doWork(channel: AsynchronousSocketChannel): ZIO[Console with Clock with Blocking with MessageStore, Throwable, Unit] =
     for {
       rawMessage <- SmtpSession(channel).run
       _ <- putStrLn(s"Finished with a message from ${rawMessage.mailFrom} for ${rawMessage.recipients}.")
@@ -89,11 +61,12 @@ object MailServer extends App {
           // all to's for fizzle.email
           val recpts = rawMessage.recipients.filter(recp => recp.mailbox.endsWith("@fizzle.email"))
           ZIO.foreachPar(recpts) { recp =>
-            writeMsgToFile(data, recp.localName)
+            putStrLn(s"Adding message for ${recp.localName}") *>
+            writeMsgToFile(data, recp.localName) *>
+              ZIO.accessM[MessageStore](_.get.newMessage(Message(EmailAddress(recp.localName), null, null, null, null)))
           }
         case None => ZIO.fail(new Exception("No data"))
       }
-      _ <- ZIO.accessM[MessageStoreT](_.get.newMessage(Message(null, null, null, null, null)))
       _ <- putStrLn(s"Wrote ${bWritten.length} files from ${rawMessage.mailFrom.map(_.path).getOrElse("-")}")
     } yield ()
 
@@ -110,6 +83,45 @@ object MailServer extends App {
       _ <- from.run(to)
     } yield ()
   }
+
+  val grpcPort = 9000
+
+  def welcome: ZIO[Console with MessageStore, Throwable, Unit] =
+    for {
+      _ <- putStrLn("Grpc server is running.")
+      msgs <- ZIO.accessM[MessageStore](_.get.getMessages(EmailAddress("willem.vermeer"))).catchAll(x => putStrLn((s"Error ${x.msg} ignored")) *> ZIO.succeed(0))
+      _ <- putStrLn(s"Store has $msgs")
+    } yield ()
+
+  val messageStore = MessageStore.live
+  val liveService =
+    ZLayer.fromServices[MessageStore.Service, Console.Service, MailBoxService]{ (store: MessageStore.Service, console: Console.Service) =>
+    new LiveService(store, console)
+  }
+  val grpcServer = ServerLayer.access[MailBoxService] {
+    val s: ServerBuilder[_] = ServerBuilder.forPort(grpcPort).addService(ProtoReflectionService.newInstance())
+    s
+  }
+
+  val appEnv = (Console.live ++ messageStore) >>> liveService ++ messageStore ++ Clock.live ++ Blocking.live ++ Console.live
+
+  override def run(args: List[String]) =
+    (for {
+      smtp <- smtpServer
+      grpc <- grpcServer.build
+    } yield ()).useForever.provideLayer(appEnv).exitCode
+//    (smtpServer.zip(welcome *> grpcServer.build).useForever))
+//      .provideLayer(appEnv ++ Console.live).exitCode
+}
+//    grpcServer.build.useForever.provideLayer(appEnv).exitCode
+//    (smtpServer.zip(grpcServer.build)).useForever.provideLayer(appEnv).exitCode
+//    (smtpServer).useForever.provideLayer(appEnv).exitCode
+
+/**
+object MailServer extends App {
+
+
+
 
 
 }
