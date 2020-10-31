@@ -40,7 +40,7 @@ object MailServer extends ServerMain {
 }
 */
 
-class LiveService extends ZMailBoxService[ZEnv, Any] {
+class LiveService extends ZMailBoxService[Console, Any] {
   //: ZIO[Console with MessageStore, Status, MailBox]
   override def getMailBox(request: GetMailBoxRequest) =
     for {
@@ -55,13 +55,22 @@ class LiveService extends ZMailBoxService[ZEnv, Any] {
 object MailServer extends App {
 //  def services: ServiceList[zio.ZEnv] = ServiceList.add(LiveService)
 
+  def welcome: ZIO[Console, Throwable, Unit] =
+    for {
+      _ <- putStrLn("Grpc server is running. Press Ctrl-C to stop.")
+    } yield ()
+
+  val messageStore = MessageStore.live
+
   val grpcServer = {
     val serverBuilder = ServerBuilder.forPort(9000).addService(ProtoReflectionService.newInstance())
     ServerLayer.fromService(serverBuilder, new LiveService())
   }
 
+  val appEnv = Console.live
+
   override def run(args: List[String]) =
-    grpcServer.build.useForever.exitCode
+    (welcome *> grpcServer.build.useForever).provideLayer(appEnv).exitCode
 }
 
 /**
