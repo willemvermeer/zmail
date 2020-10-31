@@ -55,9 +55,11 @@ class LiveService extends ZMailBoxService[Console, Any] {
 object MailServer extends App {
 //  def services: ServiceList[zio.ZEnv] = ServiceList.add(LiveService)
 
-  def welcome: ZIO[Console, Throwable, Unit] =
+  def welcome: ZIO[Console with MessageStoreT, Throwable, Unit] =
     for {
       _ <- putStrLn("Grpc server is running. Press Ctrl-C to stop.")
+      msgs <- ZIO.accessM[MessageStoreT](_.get.getMessages(EmailAddress("willem.vermeer"))).catchAll(x => putStrLn((s"Error ${x.msg} ignored")) *> ZIO.succeed(0))
+      _ <- putStrLn(s"Store has $msgs")
     } yield ()
 
   val messageStore = MessageStore.live
@@ -67,7 +69,7 @@ object MailServer extends App {
     ServerLayer.fromService(serverBuilder, new LiveService())
   }
 
-  val appEnv = Console.live
+  val appEnv = Console.live ++ MessageStore.live
 
   override def run(args: List[String]) =
     (welcome *> grpcServer.build.useForever).provideLayer(appEnv).exitCode
