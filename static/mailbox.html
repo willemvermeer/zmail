@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fizzle email</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="application/javascript">
+        function onload() {
+            const username = new URLSearchParams(window.location.search).get('name');
+            document.getElementById("mboxname").innerText = username + '@fizzle.email';
+        }
+    </script>
+</head>
+<body onload="onload()">
+<div class="header">
+    <div class="center"><h1 id="mboxname">fizzle.email</h1></div>
+    <div class="center"><h3>where your mails fizzle out within 24 hours</h3></div>
+</div>
+<div class="table-wrapper">
+    <table class="mails" id="inbox">
+        <tr>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>From</th>
+        </tr>
+    </table>
+</div>
+<div class="mailbody" id="mailbody">
+
+</div>
+
+<!--<script type="text/javascript" src="/js/webapp-fastopt-library.js"></script>-->
+<!--<script type="text/javascript" src="/js/webapp-fastopt-loader.js"></script>-->
+<!--<script type="text/javascript" src="/js/webapp-fastopt.js"></script>-->
+<script type="text/javascript" src="/js/webapp-opt-library.js"></script>
+<script type="text/javascript" src="/js/webapp-opt-loader.js"></script>
+<script type="text/javascript" src="/js/webapp-opt.js"></script>
+
+</body>
+</html>

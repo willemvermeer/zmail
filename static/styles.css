@@ -1,0 +1,60 @@
+body {
+    color:#000000;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color:#ffffff;
+}
+h1 {
+    font-size: xx-large;
+}
+.header {
+    padding: 20px;
+    background-color:#cccccc;
+    font-family:courier, courier new, serif;
+}
+.center {
+    text-align: center;
+}
+table, th, td {
+    border: 1px solid black;
+}
+.mails {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.mails td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+.mails th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.mails tr:nth-child(even){background-color: #f2f2f2;}
+
+.mails tr:hover {background-color: #ddd;}
+
+.mails th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: #4f4f4f;
+    color: white;
+}
+.table-wrapper {
+    overflow-y: scroll;
+    height: 200px;
+    border: 1px solid black;
+}
+
+.table-wrapper th {
+    position: sticky;
+    top: 0;
+}
+
+.mailbody {
+    border: 1px solid black;
+    vertical-align: top;
+    font-size: large;
+}

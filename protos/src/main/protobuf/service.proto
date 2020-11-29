@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package zmail;
+
+service MailBoxService {
+    rpc GetMailBox (GetMailBoxRequest)       returns (MailBox) {}
+    rpc GetMessageStream (GetMailBoxRequest) returns (stream MailBoxEntry) {}
+    rpc GetMessage (GetMessageRequest)       returns (MailBoxEntry) {}
+}
+
+message GetMailBoxRequest {
+    string username = 1;
+}
+
+message GetMessageRequest {
+    string username = 1;
+    string id       = 2;
+}
+
+message MailBoxEntry {
+    string from    = 1;
+    string to      = 2;
+    string when    = 3;
+    string subject = 4;
+    int32 size     = 5;
+    string id      = 6;
+    string body    = 7; // the raw and unprocessed message body
+}
+
+message MailBox {
+    repeated MailBoxEntry entries = 1;
+    int32 total                   = 2;
+}
